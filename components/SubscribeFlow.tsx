@@ -13,7 +13,7 @@ import {
 } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { QRCodeSVG } from "qrcode.react";
+// import { QRCodeSVG } from "qrcode.react";
 
 /* -------------------------------------------------------------------------- */
 /*  Config: edit these                                                         */
@@ -23,7 +23,7 @@ const BRAND = "LMS";
 
 const PLAN = {
   name: "Premium",
-  price: 499,
+  price: 1499,
   currency: "PHP",
 };
 
@@ -37,7 +37,9 @@ const PERKS = [
 // or QR payload. If you already have a fixed merchant QR (bank or e-wallet),
 // drop the image in /public and set STATIC_QR_SRC, e.g. "/payment-qr.png".
 const PAYMENT_URL = "https://pay.example.com/checkout";
-const STATIC_QR_SRC: string | null = null;
+// const STATIC_QR_SRC: string | null = null;
+
+const QR_IMAGE_SRC = "/my-new-qr.jpeg";
 
 const QR_LIFETIME_SECONDS = 15 * 60;
 
@@ -398,22 +400,13 @@ function QrFrame({
         aria-label="QR code for your payment"
         className={`h-48 w-48 sm:h-56 sm:w-56 ${expired ? "opacity-20" : ""}`}
       >
-        {STATIC_QR_SRC ? (
-          <Image
-            src={STATIC_QR_SRC}
-            alt=""
-            width={224}
-            height={224}
-            className="h-full w-full object-contain"
-          />
-        ) : (
-          <QRCodeSVG
-            value={value}
-            size={224}
-            level="M"
-            style={{ width: "100%", height: "100%" }}
-          />
-        )}
+        <Image
+          src={QR_IMAGE_SRC}
+          alt=""
+          width={224}
+          height={224}
+          className="h-full w-full object-contain"
+        />
       </div>
 
       {expired && (

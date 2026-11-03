@@ -9,26 +9,22 @@ import {
   DISPLAY,
   FOCUS,
   NAV_ITEMS,
+  EXTRA_LINKS,
   type TopicFilter,
-  type User,
 } from "@/data/data";
-
-function initials(name: string) {
-  return name
-    .split(" ")
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0])
-    .join("")
-    .toUpperCase();
-}
+import AccountMenu from "./AccountMenu";
+import type { DashboardUser } from "@/types/auth";
+import type { NavigationUser } from "@/types/auth";
 
 export default function TopNav({
   active,
+  page,
   user,
 }: {
-  active: TopicFilter;
-  user: Pick<User, "name" | "unreadNotifications">;
+  active: TopicFilter | null;
+  page?: "workspace" | "submissions";
+  user: DashboardUser;
+  navUser: NavigationUser;
 }) {
   // On small screens the topic bar scrolls sideways; keep the active topic in view.
   const listRef = useRef<HTMLUListElement>(null);
@@ -38,8 +34,10 @@ export default function TopNav({
       ?.scrollIntoView({ inline: "center", block: "nearest" });
   }, [active]);
 
-  const firstName = user.name.split(" ")[0];
-  const unread = user.unreadNotifications;
+  const navUser: NavigationUser = {
+    ...user,
+    unreadNotifications: 0,
+  };
 
   return (
     <header className="sticky top-0 z-30 border-b border-[#D5DBEE] bg-white/90 backdrop-blur">
@@ -61,31 +59,20 @@ export default function TopNav({
           <button
             type="button"
             aria-label={
-              unread > 0 ? `Notifications, ${unread} unread` : "Notifications"
+              navUser.unreadNotifications > 0
+                ? `Notifications, ${navUser.unreadNotifications} unread`
+                : "Notifications"
             }
             className={`relative flex h-10 w-10 items-center justify-center rounded-full text-slate-600 hover:bg-[#EEF1FA] hover:text-[#0F1B3D] ${FOCUS}`}
           >
             <Icon path={ICONS.bell} />
-            {unread > 0 && (
+            {navUser.unreadNotifications > 0 && (
               <span className="absolute right-2 top-2 h-2.5 w-2.5 rounded-full bg-[#2347F4] ring-2 ring-white" />
             )}
           </button>
 
-          <Link
-            href="/profile"
-            className={`flex items-center gap-2.5 rounded-full p-1 hover:bg-[#EEF1FA] sm:pr-3 ${FOCUS}`}
-          >
-            <span
-              aria-hidden="true"
-              className="flex h-8 w-8 items-center justify-center rounded-full bg-[#FFD84A] text-xs font-semibold text-[#0F1B3D]"
-            >
-              {initials(user.name)}
-            </span>
-            <span className="hidden text-sm font-medium sm:block">
-              {firstName}
-            </span>
-            <span className="sr-only sm:hidden">Account: {user.name}</span>
-          </Link>
+          {/* Profile, redeem voucher, class code, and log out live in here */}
+          <AccountMenu user={user} />
         </div>
       </div>
 
@@ -139,6 +126,25 @@ export default function TopNav({
                       <span className="sr-only"> topics</span>
                     </span>
                   ) : null}
+                </Link>
+              </li>
+            );
+          })}
+          {EXTRA_LINKS.map((item) => {
+            const isActive = item.page === page;
+            return (
+              <li key={item.page} className="shrink-0">
+                <Link
+                  href={item.href}
+                  aria-current={isActive ? "page" : undefined}
+                  className={`inline-flex items-center gap-2 whitespace-nowrap rounded-t-lg border-b-2 px-3 py-3.5 text-sm font-medium transition-colors motion-reduce:transition-none ${FOCUS} ${
+                    isActive
+                      ? "border-[#2347F4] text-[#0F1B3D]"
+                      : "border-transparent text-slate-600 hover:text-[#0F1B3D]"
+                  }`}
+                >
+                  <Icon path={item.icon} className="h-4 w-4" />
+                  {item.label}
                 </Link>
               </li>
             );

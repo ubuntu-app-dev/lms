@@ -9,6 +9,7 @@ import {
 } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { loginAction } from "@/actions/auth/auth";
 
 /* -------------------------------------------------------------------------- */
 /*  Config: edit these                                                         */
@@ -26,9 +27,9 @@ const ROLES = {
     emailPlaceholder: "you@school.edu",
     emailHint: "Use the email you subscribed with.",
     submitLabel: "Log in as a student",
-    redirectTo: "/dashboard",
+    redirectTo: "/student",
     otherRole: {
-      href: "/login/teacher",
+      href: "/teacher/auth",
       text: "Are you a teacher?",
       cta: "Log in here",
     },
@@ -45,9 +46,9 @@ const ROLES = {
     emailPlaceholder: "you@school.edu",
     emailHint: "Use the email your school registered for you.",
     submitLabel: "Log in as a teacher",
-    redirectTo: "/teacher/dashboard",
+    redirectTo: "/teacher",
     otherRole: {
-      href: "/login/student",
+      href: "/student/auth",
       text: "Are you a student?",
       cta: "Log in here",
     },
@@ -87,26 +88,6 @@ function validate(v: FormValues): FormErrors {
     errors.email = "Enter a valid email, like you@school.edu.";
   if (!v.password) errors.password = "Enter your password.";
   return errors;
-}
-
-/**
- * Replace the body with a real API call (or your auth library's sign-in
- * function). Throw an error when the email or password is wrong.
- */
-async function logIn(
-  role: Role,
-  values: FormValues & { remember: boolean },
-): Promise<void> {
-  // const res = await fetch("/api/auth/login", {
-  //   method: "POST",
-  //   headers: { "Content-Type": "application/json" },
-  //   body: JSON.stringify({ role, ...values }),
-  // });
-  // if (res.status === 401) throw new Error("invalid");
-  // if (!res.ok) throw new Error("failed");
-  void role;
-  void values;
-  await new Promise((r) => setTimeout(r, 900));
 }
 
 /* -------------------------------------------------------------------------- */
@@ -310,12 +291,23 @@ export default function LoginForm({ role }: { role: Role }) {
     setBusy(true);
     setSubmitError("");
     try {
-      await logIn(role, { ...values, remember });
-      router.push(cfg.redirectTo);
+      const result = await loginAction({
+        email: values.email.trim(),
+        password: values.password,
+        role,
+        remember,
+      });
+
+      if (!result.success) {
+        setSubmitError(result.error);
+        setBusy(false);
+        return;
+      }
+
+      router.push(result.redirectTo);
+      router.refresh();
     } catch {
-      setSubmitError(
-        "That email and password don't match. Check them and try again.",
-      );
+      setSubmitError("Unable to log in right now. Please try again.");
       setBusy(false);
     }
   }

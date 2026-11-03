@@ -24,11 +24,11 @@ import {
   parseTopic,
   type Topic,
 } from "@/data/data";
+import type { DashboardUser, NavigationUser } from "@/types/auth";
 
-/* -------------------------------------------------------------------------- */
-/*  Overview                                                                   */
-/* -------------------------------------------------------------------------- */
-
+type DashboardProps = {
+  user: DashboardUser;
+};
 function TopicCard({ topic }: { topic: Topic }) {
   const total = LESSONS_BY_TOPIC[topic.slug]?.length ?? 0;
   const done = completedCount(topic.slug);
@@ -78,8 +78,8 @@ function TopicCard({ topic }: { topic: Topic }) {
   );
 }
 
-function Overview() {
-  const firstName = USER.name.split(" ")[0];
+function Overview({ user }: { user: DashboardUser }) {
+  const firstName = user.fullName.split(" ")[0];
 
   const continueTopic = TOPIC_BY_SLUG[CONTINUE_TOPIC];
   const next = nextLesson(CONTINUE_TOPIC);
@@ -265,11 +265,14 @@ function Overview() {
 /*  Page                                                                       */
 /* -------------------------------------------------------------------------- */
 
-export default function Dashboard() {
+export default function Dashboard({ user }: DashboardProps) {
   const searchParams = useSearchParams();
   const active = parseTopic(searchParams.get("topic"));
   const topic = active === "all" ? null : TOPIC_BY_SLUG[active];
-
+  const navUser = {
+    ...user,
+    unreadNotifications: 0,
+  };
   return (
     <>
       <a
@@ -279,14 +282,14 @@ export default function Dashboard() {
         Skip to content
       </a>
 
-      <TopNav active={active} user={USER} />
+      <TopNav active={active} user={navUser} navUser={navUser} />
 
       <main
         id="main"
         className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8 lg:py-10"
       >
         {!topic ? (
-          <Overview />
+          <Overview user={user} />
         ) : topic.locked ? (
           <LockedTopic topic={topic} />
         ) : (

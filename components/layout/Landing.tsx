@@ -17,7 +17,7 @@ const ROUTES = {
   support: "/support",
 };
 
-const PLAN = { name: "Premium", price: 499, currency: "PHP" };
+const PLAN = { name: "Premium", price: 1499, currency: "PHP" };
 
 const TRACKS = [
   {
@@ -317,7 +317,7 @@ export default function Landing() {
                 href={ROUTES.subscribe}
                 className={`rounded font-semibold text-white underline underline-offset-4 ${FOCUS} focus-visible:ring-white/40`}
               >
-                Subscribe for {PRICE_LABEL} a month
+                Subscribe for {PRICE_LABEL} annually
               </Link>
             </p>
           </div>

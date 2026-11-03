@@ -1,14 +1,16 @@
 import type { CSSProperties } from "react";
 import { ICONS } from "@/components/icon/Icon";
+import { OOP_COURSE } from "./oopCourse";
 
 /* -------------------------------------------------------------------------- */
 /*  Shared constants                                                           */
 /* -------------------------------------------------------------------------- */
 
 export const BRAND = "LMS";
-export const BASE_PATH = "/dashboard";
+export const BASE_PATH = "/student";
+export const API_PATH = "http://localhost:3000/";
 
-// Needs the --font-display variable set in app/dashboard/page.tsx
+// Needs the --font-display variable set on the page wrapper
 export const DISPLAY = "font-[family-name:var(--font-display)]";
 
 export const FOCUS =
@@ -85,7 +87,7 @@ export const TOPICS: Topic[] = [
     slug: "oop",
     label: "Java OOP",
     description:
-      "Object-oriented programming in Java, from classes and objects to inheritance, polymorphism, and a capstone project.",
+      "Java basics and the four pillars of object-oriented programming: encapsulation, inheritance, polymorphism, and abstraction.",
     icon: ICONS.coffee,
     tile: "bg-[#E4EAFF] text-[#2347F4]",
     locked: false,
@@ -124,176 +126,39 @@ export const TOPICS: Topic[] = [
   },
 ];
 
+export const EXTRA_LINKS = [
+  {
+    page: "workspace",
+    label: "Workspace",
+    href: `${BASE_PATH}/workspace`,
+    icon: ICONS.terminal,
+  },
+  {
+    page: "submissions",
+    label: "Submissions",
+    href: `${BASE_PATH}/submissions`,
+    icon: ICONS.code,
+  },
+] as const;
+
 export const TOPIC_BY_SLUG = Object.fromEntries(
   TOPICS.map((t) => [t.slug, t]),
 ) as Record<TopicSlug, Topic>;
 
 /* -------------------------------------------------------------------------- */
-/*  Java OOP: 20 topics in 5 modules                                           */
+/*  Java OOP lessons                                                           */
+/*  The full material (content + assessments) lives in ./oopCourse.ts.         */
+/*  This is the lightweight list the OOP page and navbar need.                 */
 /* -------------------------------------------------------------------------- */
 
-const OOP_RAW: [
-  module: string,
-  slug: string,
-  title: string,
-  summary: string,
-  minutes: number,
-][] = [
-  // Module 1
-  [
-    "Foundations",
-    "intro-to-oop",
-    "Introduction to OOP",
-    "What objects are and why Java is built around them.",
-    20,
-  ],
-  [
-    "Foundations",
-    "classes-and-objects",
-    "Classes and Objects",
-    "Define a class and create objects with new.",
-    30,
-  ],
-  [
-    "Foundations",
-    "fields-and-methods",
-    "Fields and Methods",
-    "Give objects state and behavior.",
-    25,
-  ],
-  [
-    "Foundations",
-    "constructors",
-    "Constructors",
-    "Initialize objects, including overloaded constructors and this().",
-    25,
-  ],
-  // Module 2
-  [
-    "Encapsulation",
-    "access-modifiers-and-packages",
-    "Access Modifiers and Packages",
-    "Control visibility with public, private, protected, and default access.",
-    25,
-  ],
-  [
-    "Encapsulation",
-    "encapsulation",
-    "Encapsulation",
-    "Hide data behind getters, setters, and validation.",
-    30,
-  ],
-  [
-    "Encapsulation",
-    "static-members",
-    "Static Members",
-    "Class-level fields, methods, and blocks versus instance members.",
-    25,
-  ],
-  [
-    "Encapsulation",
-    "method-overloading",
-    "Method Overloading",
-    "Reuse one method name with different parameters.",
-    25,
-  ],
-  // Module 3
-  [
-    "Inheritance",
-    "inheritance",
-    "Inheritance",
-    "Extend a class and model IS-A relationships.",
-    30,
-  ],
-  [
-    "Inheritance",
-    "super-keyword",
-    "The super Keyword",
-    "Call parent constructors and methods.",
-    25,
-  ],
-  [
-    "Inheritance",
-    "method-overriding",
-    "Method Overriding",
-    "Change inherited behavior safely with @Override.",
-    30,
-  ],
-  [
-    "Inheritance",
-    "final-keyword",
-    "The final Keyword",
-    "Lock down variables, methods, and classes.",
-    20,
-  ],
-  // Module 4
-  [
-    "Polymorphism and abstraction",
-    "polymorphism",
-    "Polymorphism",
-    "Let one reference type work with many object types.",
-    35,
-  ],
-  [
-    "Polymorphism and abstraction",
-    "casting-and-instanceof",
-    "Upcasting, Downcasting and instanceof",
-    "Convert between types and check them at runtime.",
-    30,
-  ],
-  [
-    "Polymorphism and abstraction",
-    "abstract-classes",
-    "Abstract Classes",
-    "Define partial blueprints that subclasses complete.",
-    35,
-  ],
-  [
-    "Polymorphism and abstraction",
-    "interfaces",
-    "Interfaces",
-    "Declare contracts, including default and static methods.",
-    35,
-  ],
-  // Module 5
-  [
-    "Design and practice",
-    "composition-and-aggregation",
-    "Composition and Aggregation",
-    "Model HAS-A relationships and favor composition over inheritance.",
-    30,
-  ],
-  [
-    "Design and practice",
-    "nested-and-inner-classes",
-    "Nested and Inner Classes",
-    "Static nested, inner, local, and anonymous classes.",
-    30,
-  ],
-  [
-    "Design and practice",
-    "object-class",
-    "The Object Class",
-    "Override toString, equals, and hashCode correctly.",
-    25,
-  ],
-  [
-    "Design and practice",
-    "capstone-library-system",
-    "Capstone: Library System",
-    "Combine everything in a small Library Management System.",
-    60,
-  ],
-];
-
-export const OOP_LESSONS: Lesson[] = OOP_RAW.map(
-  ([module, slug, title, summary, minutes], i) => ({
-    number: i + 1,
-    module,
+export const OOP_LESSONS: Lesson[] = OOP_COURSE.map(
+  ({ number, slug, title, summary, minutes, module }) => ({
+    number,
     slug,
     title,
     summary,
     minutes,
+    module,
   }),
 );
 
@@ -356,9 +221,13 @@ export const WEEK: { day: string; minutes: number; today?: boolean }[] = [
 ];
 
 export const DUE: { title: string; course: string; due: string }[] = [
-  { title: "Quiz: Classes and Objects", course: "Java OOP", due: "Tomorrow" },
-  { title: "Exercise: BankAccount class", course: "Java OOP", due: "Fri" },
-  { title: "Quiz: Inheritance", course: "Java OOP", due: "Mon" },
+  {
+    title: "Assessment: Attributes, Methods and static",
+    course: "Java OOP",
+    due: "Tomorrow",
+  },
+  { title: "Assessment: Constructors", course: "Java OOP", due: "Fri" },
+  { title: "Assessment: Access Modifiers", course: "Java OOP", due: "Mon" },
 ];
 
 /* -------------------------------------------------------------------------- */

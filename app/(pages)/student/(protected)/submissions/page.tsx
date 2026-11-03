@@ -1,10 +1,10 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
 import { Bricolage_Grotesque, Instrument_Sans } from "next/font/google";
-import Dashboard from "@/components/dashboard/Dashboard";
+import CodeSubmissionsPage from "@/components/dashboard/student/CodeSubmission";
+import LessonSkeleton from "@/components/layout/LessonSkeleton";
 
-// Same fonts as /subscribe. If you'd rather not declare them twice, move these
-// two blocks into app/layout.tsx and apply the classNames to <body>.
+// Same fonts as /dashboard and /subscribe
 const display = Bricolage_Grotesque({
   subsets: ["latin"],
   variable: "--font-display",
@@ -16,18 +16,18 @@ const body = Instrument_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "Dashboard",
-  description: "Your courses, progress, and upcoming work.",
+  title: "Redeem a code",
+  description: "Redeem a voucher or enroll in a class with a class code.",
+  robots: { index: false },
 };
 
-export default function DashboardPage() {
+export default function RedeemRoute() {
   return (
     <div
       className={`${body.className} ${display.variable} min-h-screen bg-[#F2F4FB] text-[#0F1B3D]`}
     >
-      {/* Dashboard reads ?topic= from the URL, which needs a Suspense boundary */}
-      <Suspense fallback={<div className="min-h-screen" aria-busy="true" />}>
-        <Dashboard />
+      <Suspense fallback={<LessonSkeleton />}>
+        <CodeSubmissionsPage />
       </Suspense>
     </div>
   );

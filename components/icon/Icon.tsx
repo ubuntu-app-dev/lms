@@ -39,3 +39,12 @@ export function Icon({
     </svg>
   );
 }
+
+export const LESSON_ICONS = {
+  arrowLeft: "M19 12H5 M12 19l-7-7 7-7",
+  arrowRight: "M5 12h14 M12 5l7 7-7 7",
+  check: "M20 6 9 17l-5-5",
+  cross: "M18 6 6 18 M6 6l12 12",
+  chevronDown: "m6 9 6 6 6-6",
+  clock: "M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20z M12 6v6l4 2",
+};

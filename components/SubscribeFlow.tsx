@@ -601,7 +601,7 @@ export default function SubscribeFlow() {
             Tell us who you are, pay with a quick scan, and start learning.
           </p>
           <p className="mt-5 inline-block rounded-full bg-white/15 px-4 py-1.5 text-sm font-medium lg:hidden">
-            {PLAN.name} plan: {PRICE_LABEL} per month
+            {PLAN.name} plan: {PRICE_LABEL} annually
           </p>
         </div>
 

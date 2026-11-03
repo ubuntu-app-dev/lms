@@ -7,6 +7,7 @@ import TopicLessons from "@/components/topic/TopicLessons";
 import LockedTopic from "@/components/topic/LockedTopic";
 import ProgressBar from "@/components/topic/ProgressBar";
 import { Icon, ICONS } from "@/components/icon/Icon";
+import { useProgress } from "@/components/progress/ProgressProvider";
 import {
   BASE_PATH,
   CONTINUE_TOPIC,
@@ -19,17 +20,17 @@ import {
   TOPIC_BY_SLUG,
   USER,
   WEEK,
-  completedCount,
-  nextLesson,
   parseTopic,
   type Topic,
 } from "@/data/data";
-import type { DashboardUser, NavigationUser } from "@/types/auth";
+import type { DashboardUser } from "@/types/auth";
 
 type DashboardProps = {
   user: DashboardUser;
 };
+
 function TopicCard({ topic }: { topic: Topic }) {
+  const { completedCount } = useProgress();
   const total = LESSONS_BY_TOPIC[topic.slug]?.length ?? 0;
   const done = completedCount(topic.slug);
   const percent = total ? Math.round((done / total) * 100) : 0;
@@ -79,6 +80,7 @@ function TopicCard({ topic }: { topic: Topic }) {
 }
 
 function Overview({ user }: { user: DashboardUser }) {
+  const { completedCount, nextLesson } = useProgress();
   const firstName = user.fullName.split(" ")[0];
 
   const continueTopic = TOPIC_BY_SLUG[CONTINUE_TOPIC];
@@ -86,6 +88,7 @@ function Overview({ user }: { user: DashboardUser }) {
   const total = LESSONS_BY_TOPIC[CONTINUE_TOPIC]?.length ?? 0;
   const done = completedCount(CONTINUE_TOPIC);
   const percent = total ? Math.round((done / total) * 100) : 0;
+  const allDone = total > 0 && done === total;
 
   const openCount = TOPICS.filter((t) => !t.locked).length;
   const lockedCount = TOPICS.length - openCount;
@@ -170,6 +173,46 @@ function Overview({ user }: { user: DashboardUser }) {
               <span className="text-sm text-blue-100">
                 About {next.minutes} minutes
               </span>
+            </div>
+          </section>
+        )}
+
+        {/* Every lesson finished: nothing left to continue */}
+        {!next && allDone && (
+          <section
+            aria-labelledby="continue-heading"
+            className="relative flex flex-col rounded-3xl bg-[#2347F4] p-6 text-white sm:p-8 lg:col-span-2"
+            style={GRID_BG}
+          >
+            <h2
+              id="continue-heading"
+              className="text-sm font-medium text-blue-100"
+            >
+              Continue learning
+            </h2>
+            <p
+              className={`${DISPLAY} mt-3 text-2xl font-semibold leading-tight sm:text-3xl`}
+            >
+              You&apos;ve finished {continueTopic.label}
+            </p>
+            <p className="mt-1.5 text-blue-100">
+              All {total} topics are complete.
+            </p>
+            <div className="mt-6 max-w-md">
+              <ProgressBar
+                value={100}
+                label={`${continueTopic.label} progress`}
+                track="bg-white/25"
+                fill="bg-[#FFD84A]"
+              />
+            </div>
+            <div className="mt-6">
+              <Link
+                href={`${BASE_PATH}?topic=${CONTINUE_TOPIC}`}
+                className="inline-flex items-center gap-2 rounded-xl bg-[#FFD84A] px-5 py-3 font-semibold text-[#0F1B3D] transition-colors hover:bg-[#FFCE1F] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-white/50 motion-reduce:transition-none"
+              >
+                Review the lessons
+              </Link>
             </div>
           </section>
         )}

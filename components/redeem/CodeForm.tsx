@@ -4,16 +4,18 @@ import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { Icon } from "@/components/icon/Icon";
 import { BTN_PRIMARY, BTN_SECONDARY, DISPLAY } from "@/data/data";
+import { enrollWithClassCode as enrollAction } from "@/actions/enroll";
 
 /* -------------------------------------------------------------------------- */
-/*  Backend hooks: replace these two with your real calls                      */
-/*  Throw an Error with a friendly message to show it under the input.         */
+/*  Backend hooks                                                              */
+/*  Throw an Error with a friendly message to show it under the input.        */
 /* -------------------------------------------------------------------------- */
 
 export type CodeResult = { title: string; message: string };
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+// STILL A STUB: this waits and says yes without saving anything.
 async function redeemVoucher(code: string): Promise<CodeResult> {
   // const res = await fetch("/api/vouchers/redeem", {
   //   method: "POST",
@@ -30,12 +32,13 @@ async function redeemVoucher(code: string): Promise<CodeResult> {
   };
 }
 
+// REAL: checks the code against the classes table and saves the enrollment.
 async function enrollWithClassCode(code: string): Promise<CodeResult> {
-  // Same pattern, e.g. POST /api/classes/join { code }
-  await sleep(900);
+  const res = await enrollAction(code);
+  if (!res.ok) throw new Error(res.message);
   return {
-    title: "You're enrolled",
-    message: `Class code ${code} was accepted. Your class now appears on your dashboard.`,
+    title: res.alreadyEnrolled ? "You're already enrolled" : "You're enrolled",
+    message: `You joined ${res.className}. Your lessons are now open.`,
   };
 }
 

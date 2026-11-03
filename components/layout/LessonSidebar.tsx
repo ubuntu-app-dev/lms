@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Icon } from "@/components/icon/Icon";
-import { DISPLAY, FOCUS, lessonStatus } from "@/data/data";
+import { DISPLAY, FOCUS } from "@/data/data";
 import { LESSON_ICONS } from "@/components/icon/Icon";
 
 type Item = { number: number; slug: string; title: string; module: string };
@@ -18,9 +18,11 @@ function groupByModule(items: Item[]) {
 function TopicList({
   items,
   currentSlug,
+  completed,
 }: {
   items: Item[];
   currentSlug: string;
+  completed: Set<string>;
 }) {
   return (
     <nav aria-label="Java OOP topics">
@@ -32,8 +34,7 @@ function TopicList({
           <ol className="mt-1 space-y-0.5">
             {group.items.map((item) => {
               const current = item.slug === currentSlug;
-              const completed =
-                lessonStatus("oop", item.number) === "completed";
+              const done = completed.has(item.slug);
               return (
                 <li key={item.slug}>
                   <Link
@@ -48,14 +49,14 @@ function TopicList({
                     <span
                       aria-hidden="true"
                       className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${
-                        completed
+                        done
                           ? "bg-[#2347F4] text-white"
                           : current
                             ? "bg-[#FFD84A] text-[#0F1B3D]"
                             : "bg-[#EEF1FA] text-slate-600"
                       }`}
                     >
-                      {completed ? (
+                      {done ? (
                         <Icon
                           path={LESSON_ICONS.check}
                           className="h-3.5 w-3.5"
@@ -66,9 +67,7 @@ function TopicList({
                     </span>
                     <span className="min-w-0">
                       {item.title}
-                      {completed && (
-                        <span className="sr-only"> (completed)</span>
-                      )}
+                      {done && <span className="sr-only"> (completed)</span>}
                     </span>
                   </Link>
                 </li>
@@ -84,10 +83,15 @@ function TopicList({
 export default function LessonSidebar({
   items,
   currentSlug,
+  completed,
 }: {
   items: Item[];
   currentSlug: string;
+  /** Slugs of the lessons the student has finished */
+  completed: string[];
 }) {
+  const completedSet = new Set(completed);
+
   return (
     <>
       {/* Mobile: collapsible list above the lesson */}
@@ -102,7 +106,11 @@ export default function LessonSidebar({
           />
         </summary>
         <div className="max-h-80 overflow-y-auto border-t border-[#E3E7F4] p-2">
-          <TopicList items={items} currentSlug={currentSlug} />
+          <TopicList
+            items={items}
+            currentSlug={currentSlug}
+            completed={completedSet}
+          />
         </div>
       </details>
 
@@ -112,7 +120,11 @@ export default function LessonSidebar({
           <h2 className={`${DISPLAY} px-3 pb-3 pt-2 text-lg font-semibold`}>
             Java OOP
           </h2>
-          <TopicList items={items} currentSlug={currentSlug} />
+          <TopicList
+            items={items}
+            currentSlug={currentSlug}
+            completed={completedSet}
+          />
         </div>
       </aside>
     </>

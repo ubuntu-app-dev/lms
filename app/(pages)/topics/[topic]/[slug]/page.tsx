@@ -18,6 +18,7 @@ import { getCurrentUser } from "@/lib/supabase/current-user";
 import LessonSkeleton from "@/components/layout/LessonSkeleton";
 import PracticeCta from "@/components/practice/PracticeCta";
 import { getExercise } from "@/data/oopExercises";
+import { getCompletedLessons, getLessonResult } from "@/lib/progress";
 
 // Same fonts as the other pages
 const display = Bricolage_Grotesque({
@@ -55,9 +56,13 @@ export default async function LessonPage({ params }: PageProps) {
 
 async function LessonPageContent({ params }: PageProps) {
   const { topic, slug } = await params;
-  const user = await getCurrentUser();
-
   if (topic !== "oop") notFound();
+
+  const [user, completed, previous] = await Promise.all([
+    getCurrentUser(),
+    getCompletedLessons(),
+    getLessonResult("oop", slug),
+  ]);
 
   const index = OOP_COURSE.findIndex((l) => l.slug === slug);
   if (index === -1) notFound();
@@ -92,7 +97,11 @@ async function LessonPageContent({ params }: PageProps) {
         className="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:px-8 lg:py-10"
       >
         <div className="grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)] lg:gap-10">
-          <LessonSidebar items={OOP_COURSE} currentSlug={lesson.slug} />
+          <LessonSidebar
+            items={OOP_COURSE}
+            currentSlug={lesson.slug}
+            completed={completed.oop ?? []}
+          />
 
           <article className="min-w-0 rounded-3xl border border-[#D5DBEE] bg-white p-6 sm:p-10">
             {/* Breadcrumb and quick prev/next */}

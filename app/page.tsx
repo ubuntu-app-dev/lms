@@ -2,8 +2,6 @@ import type { Metadata } from "next";
 import { Bricolage_Grotesque, Instrument_Sans } from "next/font/google";
 import Landing from "@/components/layout/Landing";
 
-// Same fonts as the subscribe page. `variable` exposes --font-display,
-// which the Landing component picks up.
 const display = Bricolage_Grotesque({
   subsets: ["latin"],
   variable: "--font-display",

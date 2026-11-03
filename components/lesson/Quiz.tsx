@@ -2,38 +2,17 @@
 
 import { useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Icon } from "@/components/icon/Icon";
-import { BTN_PRIMARY, BTN_SECONDARY, DISPLAY } from "@/data/data";
+import { BTN_PRIMARY, DISPLAY, PASS_MARK } from "@/data/data";
 import type { QuizQuestion } from "@/data/oopCourse";
+import type { LessonResult } from "@/components/progress/ProgressProvider";
+import { submitQuiz } from "@/actions/quiz";
 import Inline from "./Inline";
 import { highlightJava } from "./Highlight";
 import { LESSON_ICONS } from "@/components/icon/Icon";
 
-/** Correct answers needed to pass (4 of 5 = 80%) */
-const PASS_MARK = 4;
 const LETTERS = ["A", "B", "C", "D"];
-
-/* -------------------------------------------------------------------------- */
-/*  Backend hook: replace with your real API call                              */
-/*  Called once when the learner finishes all five questions.                  */
-/* -------------------------------------------------------------------------- */
-
-async function saveAssessmentResult(result: {
-  topic: string;
-  lesson: string;
-  score: number;
-  total: number;
-}) {
-  // await fetch("/api/progress", {
-  //   method: "POST",
-  //   headers: { "Content-Type": "application/json" },
-  //   body: JSON.stringify(result),
-  // });
-  void result;
-  await new Promise((r) => setTimeout(r, 500));
-}
-
-/* -------------------------------------------------------------------------- */
 
 type Props = {
   questions: QuizQuestion[];
@@ -41,6 +20,11 @@ type Props = {
   lessonSlug: string;
   nextHref: string;
   nextLabel: string;
+  /**
+   * The student's saved result, from getLessonResult() on the lesson page.
+   * When it is set, the assessment opens locked and nothing can be retaken.
+   */
+  previous?: LessonResult | null;
 };
 
 export default function Quiz({
@@ -49,28 +33,35 @@ export default function Quiz({
   lessonSlug,
   nextHref,
   nextLabel,
+  previous = null,
 }: Props) {
+  const router = useRouter();
   const total = questions.length;
+
+  // A lesson marked done by hand has no saved answers to review.
+  const noDetails = previous !== null && previous.answers === null;
 
   const [index, setIndex] = useState(0);
   const [selected, setSelected] = useState<number | null>(null);
   const [checked, setChecked] = useState(false);
-  const [answers, setAnswers] = useState<(number | null)[]>(() =>
-    Array(total).fill(null),
+  const [answers, setAnswers] = useState<(number | null)[]>(
+    () => previous?.answers ?? Array(total).fill(null),
   );
-  const [finished, setFinished] = useState(false);
+  const [finished, setFinished] = useState(previous !== null);
   const [save, setSave] = useState<"idle" | "saving" | "saved" | "error">(
-    "idle",
+    previous !== null ? "saved" : "idle",
   );
 
   const questionRef = useRef<HTMLHeadingElement>(null);
   const resultRef = useRef<HTMLHeadingElement>(null);
 
   const current = questions[index];
-  const score = answers.reduce<number>(
-    (n, a, i) => (a === questions[i].answer ? n + 1 : n),
-    0,
-  );
+  const score = noDetails
+    ? (previous?.score ?? 0)
+    : answers.reduce<number>(
+        (n, a, i) => (a === questions[i].answer ? n + 1 : n),
+        0,
+      );
   const passed = score >= PASS_MARK;
 
   function check() {
@@ -79,11 +70,18 @@ export default function Quiz({
     setChecked(true);
   }
 
+  /** Grades on the server and saves. Saving is what marks the lesson done. */
   async function persist() {
     setSave("saving");
     try {
-      await saveAssessmentResult({ topic, lesson: lessonSlug, score, total });
-      setSave("saved");
+      const res = await submitQuiz(topic, lessonSlug, answers as number[]);
+      if (res.ok) {
+        setSave("saved");
+        // Re-render the lesson page so the sidebar shows the check.
+        router.refresh();
+      } else {
+        setSave("error");
+      }
     } catch {
       setSave("error");
     }
@@ -102,16 +100,6 @@ export default function Quiz({
     }
   }
 
-  function retry() {
-    setIndex(0);
-    setSelected(null);
-    setChecked(false);
-    setAnswers(Array(total).fill(null));
-    setFinished(false);
-    setSave("idle");
-    requestAnimationFrame(() => questionRef.current?.focus());
-  }
-
   return (
     <section
       id="assessment"
@@ -125,7 +113,8 @@ export default function Quiz({
         Test your knowledge
       </h2>
       <p className="mt-1.5 text-slate-600">
-        {total} questions. Answer {PASS_MARK} or more correctly to pass.
+        {total} questions. Answer {PASS_MARK} or more correctly to pass. You can
+        take this assessment only once.
       </p>
 
       {!finished ? (
@@ -248,8 +237,27 @@ export default function Quiz({
                 ? "Check answer"
                 : index < total - 1
                   ? "Next question"
-                  : "See results"}
+                  : "Submit assessment"}
             </button>
+          </div>
+        </div>
+      ) : noDetails ? (
+        /* ------------------- Done earlier, nothing to review ------------------ */
+        <div className="mt-6 rounded-2xl border border-[#D5DBEE] bg-[#F7F8FD] p-5 sm:p-8">
+          <h3
+            ref={resultRef}
+            tabIndex={-1}
+            className={`${DISPLAY} text-3xl font-semibold tracking-tight focus:outline-none`}
+          >
+            Assessment completed
+          </h3>
+          <p className="mt-2 text-slate-700">
+            You already finished this lesson, so the assessment is closed.
+          </p>
+          <div className="mt-6 flex sm:justify-end">
+            <Link href={nextHref} className={`${BTN_PRIMARY} w-full sm:w-auto`}>
+              {nextLabel}
+            </Link>
           </div>
         </div>
       ) : (
@@ -265,22 +273,26 @@ export default function Quiz({
           <p className="mt-2 text-slate-700">
             {passed
               ? "Nicely done, you passed this assessment."
-              : `You need ${PASS_MARK} correct to pass. Review the lesson and try again.`}
+              : `You needed ${PASS_MARK} correct to pass. This assessment can't be retaken, so review the lesson before you move on.`}
           </p>
 
           <p role="status" className="mt-2 text-sm text-slate-600">
             {save === "saving" && "Saving your result…"}
-            {save === "saved" && "Your result has been saved."}
+            {save === "saved" &&
+              (previous
+                ? "This is your saved result."
+                : "Your result has been saved.")}
             {save === "error" && (
               <>
-                We couldn&apos;t save your result.{" "}
+                We couldn&apos;t save your result. Stay on this page and{" "}
                 <button
                   type="button"
                   onClick={persist}
                   className="font-semibold text-[#2347F4] underline underline-offset-4"
                 >
-                  Try again
+                  try again
                 </button>
+                .
               </>
             )}
           </p>
@@ -329,40 +341,10 @@ export default function Quiz({
             })}
           </ol>
 
-          <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-end">
-            {passed ? (
-              <>
-                <button
-                  type="button"
-                  onClick={retry}
-                  className={`${BTN_SECONDARY} w-full sm:w-auto`}
-                >
-                  Retry assessment
-                </button>
-                <Link
-                  href={nextHref}
-                  className={`${BTN_PRIMARY} w-full sm:w-auto`}
-                >
-                  {nextLabel}
-                </Link>
-              </>
-            ) : (
-              <>
-                <Link
-                  href={nextHref}
-                  className={`${BTN_SECONDARY} w-full sm:w-auto`}
-                >
-                  {nextLabel}
-                </Link>
-                <button
-                  type="button"
-                  onClick={retry}
-                  className={`${BTN_PRIMARY} w-full sm:w-auto`}
-                >
-                  Retry assessment
-                </button>
-              </>
-            )}
+          <div className="mt-6 flex sm:justify-end">
+            <Link href={nextHref} className={`${BTN_PRIMARY} w-full sm:w-auto`}>
+              {nextLabel}
+            </Link>
           </div>
         </div>
       )}

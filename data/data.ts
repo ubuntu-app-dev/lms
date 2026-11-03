@@ -1,7 +1,7 @@
 import type { CSSProperties } from "react";
 import { ICONS } from "@/components/icon/Icon";
 import { OOP_COURSE } from "./oopCourse";
-
+export const PASS_MARK = 4;
 /* -------------------------------------------------------------------------- */
 /*  Shared constants                                                           */
 /* -------------------------------------------------------------------------- */

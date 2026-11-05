@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  useEffect,
   useState,
   type ChangeEvent,
   type CSSProperties,
@@ -9,14 +10,16 @@ import {
 } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { loginAction } from "@/actions/auth/auth";
+import { sendLoginCode, verifyLoginCode } from "@/actions/auth/auth";
 
 /* -------------------------------------------------------------------------- */
 /*  Config: edit these                                                         */
 /* -------------------------------------------------------------------------- */
 
 const BRAND = "LMS";
-
+const CODE_LENGTH = 6;
+const RESEND_SECONDS = 60;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 type Role = "student" | "teacher";
 
 const ROLES = {
@@ -244,15 +247,13 @@ export default function LoginForm({ role }: { role: Role }) {
   const cfg = ROLES[role];
   const isTeacher = role === "teacher";
 
-  const [values, setValues] = useState<FormValues>({ email: "", password: "" });
-  const [remember, setRemember] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
-  const [errors, setErrors] = useState<FormErrors>({});
-  const [touched, setTouched] = useState<Partial<Record<FieldName, boolean>>>(
-    {},
-  );
-  const [busy, setBusy] = useState(false);
+  const [step, setStep] = useState<"email" | "code">("email");
+  const [email, setEmail] = useState("");
+  const [code, setCode] = useState("");
+  const [fieldError, setFieldError] = useState("");
   const [submitError, setSubmitError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [cooldown, setCooldown] = useState(0);
 
   const submitBtn = `inline-flex w-full items-center justify-center gap-2.5 rounded-xl px-5 py-3.5 text-center text-base font-semibold text-white transition-colors ${FOCUS} disabled:cursor-not-allowed motion-reduce:transition-none ${
     isTeacher
@@ -260,50 +261,64 @@ export default function LoginForm({ role }: { role: Role }) {
       : "bg-[#2347F4] hover:bg-[#1B38C9] focus-visible:ring-[#2347F4]/30 disabled:bg-[#2347F4]/70"
   }`;
 
-  function handleChange(e: ChangeEvent<HTMLInputElement>) {
-    const name = e.target.name as FieldName;
-    const next = { ...values, [name]: e.target.value };
-    setValues(next);
-    if (submitError) setSubmitError("");
-    if (touched[name]) {
-      setErrors((prev) => ({ ...prev, [name]: validate(next)[name] }));
-    }
-  }
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const t = setTimeout(() => setCooldown((c) => c - 1), 1000);
+    return () => clearTimeout(t);
+  }, [cooldown]);
 
-  function handleBlur(e: FocusEvent<HTMLInputElement>) {
-    const name = e.target.name as FieldName;
-    setTouched((prev) => ({ ...prev, [name]: true }));
-    setErrors((prev) => ({ ...prev, [name]: validate(values)[name] }));
+  async function requestCode(): Promise<boolean> {
+    setBusy(true);
+    setSubmitError("");
+    try {
+      const result = await sendLoginCode({ email: email.trim() });
+      if (!result.success) {
+        setSubmitError(result.error);
+        return false;
+      }
+      setCooldown(RESEND_SECONDS);
+      return true;
+    } catch {
+      setSubmitError("Unable to send the code right now. Please try again.");
+      return false;
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    const found = validate(values);
-    setErrors(found);
-    setTouched({ email: true, password: true });
 
-    const firstInvalid = FIELD_ORDER.find((n) => found[n]);
-    if (firstInvalid) {
-      document.getElementById(firstInvalid)?.focus();
+    if (step === "email") {
+      if (!EMAIL_RE.test(email.trim())) {
+        setFieldError("Enter a valid email, like you@school.edu.");
+        document.getElementById("email")?.focus();
+        return;
+      }
+      setFieldError("");
+      if (await requestCode()) {
+        setCode("");
+        setStep("code");
+      }
       return;
     }
 
+    if (code.length !== CODE_LENGTH) {
+      setFieldError(`Enter the ${CODE_LENGTH}-digit code.`);
+      document.getElementById("code")?.focus();
+      return;
+    }
+
+    setFieldError("");
     setBusy(true);
     setSubmitError("");
     try {
-      const result = await loginAction({
-        email: values.email.trim(),
-        password: values.password,
-        role,
-        remember,
-      });
-
+      const result = await verifyLoginCode({ email: email.trim(), code, role });
       if (!result.success) {
         setSubmitError(result.error);
         setBusy(false);
         return;
       }
-
       router.push(result.redirectTo);
       router.refresh();
     } catch {
@@ -312,23 +327,19 @@ export default function LoginForm({ role }: { role: Role }) {
     }
   }
 
+  function changeEmail() {
+    setStep("email");
+    setCode("");
+    setFieldError("");
+    setSubmitError("");
+  }
+
   const inputClass = (error?: string) =>
     `mt-1.5 block w-full rounded-xl border bg-white px-4 py-3 text-base text-[#0F1B3D] transition-colors placeholder:text-slate-400 focus:outline-none focus:ring-4 motion-reduce:transition-none ${
       error
         ? "border-red-500 focus:border-red-500 focus:ring-red-100"
         : "border-[#7B87AB] hover:border-[#4A5883] focus:border-[#2347F4] focus:ring-[#2347F4]/20"
     }`;
-
-  const fieldError = (id: FieldName, message?: string) =>
-    message ? (
-      <p
-        id={`${id}-message`}
-        className="mt-1.5 flex items-start gap-1.5 text-sm text-red-700"
-      >
-        <Icon path={ICONS.alert} className="mt-0.5 h-4 w-4 shrink-0" />
-        {message}
-      </p>
-    ) : null;
 
   return (
     <div className="grid min-h-screen lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
@@ -405,98 +416,117 @@ export default function LoginForm({ role }: { role: Role }) {
               {cfg.title}
             </h2>
             <p className="mt-1.5 text-slate-600">
-              Enter your email and password to continue.
+              {step === "email"
+                ? "Enter your email and we'll send you a login code."
+                : "Enter the code we sent to your email."}
             </p>
-
             <form onSubmit={handleSubmit} noValidate className="mt-7 space-y-5">
-              {/* Email */}
-              <div>
-                <label htmlFor="email" className="block text-sm font-medium">
-                  Email
-                </label>
-                <input
-                  id="email"
-                  name="email"
-                  type="email"
-                  inputMode="email"
-                  autoComplete="username"
-                  placeholder={cfg.emailPlaceholder}
-                  value={values.email}
-                  onChange={handleChange}
-                  onBlur={handleBlur}
-                  required
-                  aria-invalid={errors.email ? true : undefined}
-                  aria-describedby={`email-message`}
-                  className={inputClass(errors.email)}
-                />
-                {fieldError("email", errors.email) ?? (
-                  <p
-                    id="email-message"
-                    className="mt-1.5 text-sm text-slate-500"
-                  >
-                    {cfg.emailHint}
-                  </p>
-                )}
-              </div>
-
-              {/* Password */}
-              <div>
-                <div className="flex items-center justify-between gap-4">
-                  <label
-                    htmlFor="password"
-                    className="block text-sm font-medium"
-                  >
-                    Password
+              {step === "email" ? (
+                <div>
+                  <label htmlFor="email" className="block text-sm font-medium">
+                    Email
                   </label>
-                  <Link
-                    href={FORGOT_PASSWORD_HREF}
-                    className={`rounded text-sm font-medium text-[#2347F4] underline-offset-4 hover:underline ${FOCUS} focus-visible:ring-[#2347F4]/25`}
-                  >
-                    Forgot password?
-                  </Link>
-                </div>
-                <div className="relative">
                   <input
-                    id="password"
-                    name="password"
-                    type={showPassword ? "text" : "password"}
-                    autoComplete="current-password"
-                    placeholder="Your password"
-                    value={values.password}
-                    onChange={handleChange}
-                    onBlur={handleBlur}
-                    required
-                    aria-invalid={errors.password ? true : undefined}
-                    aria-describedby={
-                      errors.password ? "password-message" : undefined
-                    }
-                    className={`${inputClass(errors.password)} pr-12`}
+                    id="email"
+                    type="email"
+                    inputMode="email"
+                    autoComplete="username"
+                    placeholder={cfg.emailPlaceholder}
+                    value={email}
+                    onChange={(e) => {
+                      setEmail(e.target.value);
+                      if (fieldError) setFieldError("");
+                      if (submitError) setSubmitError("");
+                    }}
+                    aria-invalid={fieldError ? true : undefined}
+                    aria-describedby="email-message"
+                    className={inputClass(fieldError)}
                   />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword((s) => !s)}
-                    aria-label={
-                      showPassword ? "Hide password" : "Show password"
-                    }
-                    aria-pressed={showPassword}
-                    className={`absolute right-1.5 top-[0.4375rem] flex h-9 w-9 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-[#0F1B3D] ${FOCUS} focus-visible:ring-[#2347F4]/25`}
-                  >
-                    <Icon path={showPassword ? ICONS.eyeOff : ICONS.eye} />
-                  </button>
+                  {fieldError ? (
+                    <p
+                      id="email-message"
+                      className="mt-1.5 flex items-start gap-1.5 text-sm text-red-700"
+                    >
+                      <Icon
+                        path={ICONS.alert}
+                        className="mt-0.5 h-4 w-4 shrink-0"
+                      />
+                      {fieldError}
+                    </p>
+                  ) : (
+                    <p
+                      id="email-message"
+                      className="mt-1.5 text-sm text-slate-500"
+                    >
+                      {cfg.emailHint} We&apos;ll email you a login code.
+                    </p>
+                  )}
                 </div>
-                {fieldError("password", errors.password)}
-              </div>
-
-              {/* Remember me */}
-              <label className="flex cursor-pointer items-center gap-3 text-sm">
-                <input
-                  type="checkbox"
-                  checked={remember}
-                  onChange={(e) => setRemember(e.target.checked)}
-                  className="h-5 w-5 rounded border-[#7B87AB] accent-[#2347F4]"
-                />
-                Keep me logged in on this device
-              </label>
+              ) : (
+                <div>
+                  <label htmlFor="code" className="block text-sm font-medium">
+                    Login code
+                  </label>
+                  <input
+                    id="code"
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    maxLength={CODE_LENGTH}
+                    placeholder={"0".repeat(CODE_LENGTH)}
+                    value={code}
+                    autoFocus
+                    onChange={(e) => {
+                      setCode(
+                        e.target.value.replace(/\D/g, "").slice(0, CODE_LENGTH),
+                      );
+                      if (fieldError) setFieldError("");
+                      if (submitError) setSubmitError("");
+                    }}
+                    aria-invalid={fieldError ? true : undefined}
+                    aria-describedby="code-message"
+                    className={`${inputClass(fieldError)} text-center text-2xl tracking-[0.5em]`}
+                  />
+                  {fieldError ? (
+                    <p
+                      id="code-message"
+                      className="mt-1.5 flex items-start gap-1.5 text-sm text-red-700"
+                    >
+                      <Icon
+                        path={ICONS.alert}
+                        className="mt-0.5 h-4 w-4 shrink-0"
+                      />
+                      {fieldError}
+                    </p>
+                  ) : (
+                    <p
+                      id="code-message"
+                      className="mt-1.5 text-sm text-slate-500"
+                    >
+                      We sent a code to{" "}
+                      <span className="font-medium">{email.trim()}</span>.
+                    </p>
+                  )}
+                  <div className="mt-3 flex items-center justify-between text-sm">
+                    <button
+                      type="button"
+                      onClick={changeEmail}
+                      className={`rounded font-medium text-[#2347F4] underline-offset-4 hover:underline ${FOCUS} focus-visible:ring-[#2347F4]/25`}
+                    >
+                      Use a different email
+                    </button>
+                    <button
+                      type="button"
+                      disabled={cooldown > 0 || busy}
+                      onClick={requestCode}
+                      className={`rounded font-medium text-[#2347F4] underline-offset-4 hover:underline disabled:cursor-not-allowed disabled:text-slate-400 disabled:no-underline ${FOCUS} focus-visible:ring-[#2347F4]/25`}
+                    >
+                      {cooldown > 0
+                        ? `Resend code in ${cooldown}s`
+                        : "Resend code"}
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {submitError && (
                 <p
@@ -515,8 +545,10 @@ export default function LoginForm({ role }: { role: Role }) {
                 {busy ? (
                   <>
                     <Spinner />
-                    Logging in…
+                    {step === "email" ? "Sending code…" : "Logging in…"}
                   </>
+                ) : step === "email" ? (
+                  "Send me a code"
                 ) : (
                   cfg.submitLabel
                 )}

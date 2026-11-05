@@ -2,38 +2,69 @@
 
 import { createClient } from "@/lib/supabase/server";
 
-type LoginInput = {
-  email: string;
-  password: string;
-  role: "student" | "teacher";
-  remember: boolean;
-};
+type Role = "student" | "teacher";
 
-type LoginResult =
+type SendResult = { success: true } | { success: false; error: string };
+type VerifyResult =
   | { success: true; redirectTo: string }
   | { success: false; error: string };
 
-/**
- * Server action used by LoginForm.tsx.
- * Expects profiles.id to match auth.users.id, with role and approval_status columns.
- */
-export async function loginAction(input: LoginInput): Promise<LoginResult> {
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/** Step 1: email a one-time code. */
+export async function sendLoginCode(input: {
+  email: string;
+}): Promise<SendResult> {
   const email = input.email.trim().toLowerCase();
-  if (!email || !input.password) {
-    return { success: false, error: "Enter your email and password." };
+  if (!EMAIL_RE.test(email)) {
+    return { success: false, error: "Enter a valid email." };
   }
 
   const supabase = await createClient();
-  const { data: authData, error: authError } =
-    await supabase.auth.signInWithPassword({
-      email,
-      password: input.password,
-    });
+  const { error } = await supabase.auth.signInWithOtp({
+    email,
+    // Only existing (subscribed) users can log in; never create accounts here.
+    options: { shouldCreateUser: false },
+  });
+
+  if (error) {
+    if (error.status === 429) {
+      return {
+        success: false,
+        error: "Please wait a minute before requesting another code.",
+      };
+    }
+    // Log real failures (SMTP down, etc.) but return a generic success so the
+    // response doesn't reveal whether an email is registered.
+    console.error("sendLoginCode:", error.message);
+  }
+
+  return { success: true };
+}
+
+/** Step 2: verify the code, then run the same role/approval checks as before. */
+export async function verifyLoginCode(input: {
+  email: string;
+  code: string;
+  role: Role;
+}): Promise<VerifyResult> {
+  const email = input.email.trim().toLowerCase();
+  const code = input.code.trim();
+  if (!email || !code) {
+    return { success: false, error: "Enter the code we emailed you." };
+  }
+
+  const supabase = await createClient();
+  const { data: authData, error: authError } = await supabase.auth.verifyOtp({
+    email,
+    token: code,
+    type: "email",
+  });
 
   if (authError || !authData.user) {
     return {
       success: false,
-      error: "That email and password don't match. Check them and try again.",
+      error: "That code is invalid or has expired. Request a new one.",
     };
   }
 
@@ -51,7 +82,6 @@ export async function loginAction(input: LoginInput): Promise<LoginResult> {
     };
   }
 
-  // Never trust the role selected on the login page; compare it to the database.
   if (profile.role !== input.role) {
     await supabase.auth.signOut();
     return {
@@ -61,7 +91,6 @@ export async function loginAction(input: LoginInput): Promise<LoginResult> {
   }
 
   if (profile.approval_status !== "approved") {
-    // Keep the authenticated session so the pending page can identify the user.
     return { success: true, redirectTo: "/pending" };
   }
 
